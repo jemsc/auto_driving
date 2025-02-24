@@ -1,0 +1,187 @@
+import logging
+
+logging.basicConfig(level=logging.INFO, format='%(message)s')
+
+class Field:
+    def __init__(self, width, height):
+        self.width = width
+        self.height = height
+        self.cars = []
+
+    def add_car(self, name, x, y, direction, commands):
+        self.cars.append(Car(name, x, y, direction, commands, self.width, self.height))
+        return True
+
+    def run_simulation(self):
+        step = 0
+        collision_report = []
+        while True:
+            step += 1
+            collision_this_step = False
+            for car in self.cars:
+                if car.collided or car.executed_commands >= len(car.commands):
+                    continue
+
+                car.execute_command()
+                
+                for other_car in self.cars:
+                    if other_car == car:
+                        continue
+                    
+                    if car.x == other_car.x and car.y == other_car.y:
+                        car.stop(step)
+                        other_car.stop(step)
+                        collision_report.append(f"- {car.name} collides with {other_car.name} at ({car.x},{car.y}) at step {step}")
+                        collision_this_step = True
+
+            if all(car.collided or car.executed_commands >= len(car.commands) for car in self.cars):
+                break
+
+        return collision_report
+    
+    def print_results(self):
+        logging.info("Your current list of cars are:")
+        for car in self.cars:
+            logging.info(f"- {car.name}, ({car.initial_x},{car.initial_y}) {car.initial_direction}, {car.commands}")
+
+    def print_simulation_result(self, collision_report):
+        logging.info("\nAfter simulation, the result is:")
+        for collision in collision_report:
+            logging.info(collision)
+        for car in self.cars:
+            status = " (collided)" if car.collided else ""
+            logging.info(f"- {car.name}, ({car.x},{car.y}) {car.direction}{status}")
+
+
+class Car:
+    def __init__(self, name, x, y, direction, commands, field_width, field_height):
+        self.name = name
+        self.x = x
+        self.y = y
+        self.direction = direction.upper()
+        self.commands = commands
+        self.executed_commands = 0
+        self.collided = False
+        self.field_width = field_width
+        self.field_height = field_height
+        self.collision_step = None
+        self.initial_x = x
+        self.initial_y = y
+        self.initial_direction = direction
+
+    def execute_command(self):
+        if self.collided or self.executed_commands >= len(self.commands):
+            return
+
+        command = self.commands[self.executed_commands].lower()
+        if command == 'f':
+            self.move_forward()
+        elif command == 'l':
+            self.turn_left()
+        elif command == 'r':
+            self.turn_right()
+        self.executed_commands += 1
+
+    def move_forward(self):
+        if self.direction == 'N' and self.y < self.field_height - 1:
+            self.y += 1
+        elif self.direction == 'S' and self.y > 0:
+            self.y -= 1
+        elif self.direction == 'E' and self.x < self.field_width - 1:
+            self.x += 1
+        elif self.direction == 'W' and self.x > 0:
+            self.x -= 1
+
+    def turn_left(self):
+        directions = ['N', 'W', 'S', 'E']
+        self.direction = directions[(directions.index(self.direction) + 1) % 4]
+
+    def turn_right(self):
+        directions = ['N', 'E', 'S', 'W']
+        self.direction = directions[(directions.index(self.direction) + 1) % 4]
+
+    def stop(self, step):
+        self.collided = True
+        self.collision_step = step
+
+
+def get_integer_input(prompt):
+    while True:
+        try:
+            value = int(input(prompt))
+            if value > 0:
+                return value
+            logging.error("Input must be a positive integer.")
+        except ValueError:
+            logging.error("Invalid input. Please enter a valid integer.")
+
+def start():
+    logging.info("\nWelcome to Auto Driving Car Simulation!")
+    
+    while True:
+        width, height = input("\nPlease enter the width and height of the simulation field in x y format: ").split()
+        try:
+            width, height = int(width), int(height)
+            if width > 0 and height > 0:
+                break
+            else:
+                logging.error("Width and height must be positive integers.")
+        except ValueError:
+            logging.error("Invalid input. Please enter valid integers.")
+
+    field = Field(width, height)
+    logging.info(f"\nYou have created a field of {width} x {height}.")
+
+    while True:
+        logging.info("\nPlease choose from the following options:\n[1] Add a car to field\n[2] Run simulation")
+        choice = input().strip()
+
+        if choice == '1':
+            name = input("Please enter the name of the car: ").strip()
+            if any(car.name == name for car in field.cars):
+                logging.error(f"Error: Car name '{name}' is already taken.")
+                continue
+
+            try:
+                x, y, direction = input(f"Please enter initial position of car {name} in x y Direction format: ").split()
+                x, y = int(x), int(y)
+            except ValueError:
+                logging.error("Invalid input format. Please enter in 'x y Direction' format with valid integers for x and y.")
+                continue
+
+            if not (0 <= x < field.width and 0 <= y < field.height):
+                logging.error(f"Error: Position ({x}, {y}) is outside field boundaries ({field.width}, {field.height}).")
+                continue
+
+            if any(car.x == x and car.y == y for car in field.cars):
+                logging.error(f"Error: Position ({x}, {y}) is already occupied.")
+                continue
+
+            direction = direction.upper()
+            if direction not in ['N', 'S', 'E', 'W']:
+                logging.error("Invalid direction. Please note that only N, S, W, E (representing North, South, West, East) are allowed for direction.")
+                continue
+
+            commands = input("Enter commands (L, R, F only): ").strip().upper()
+            if not all(cmd in 'LRF' for cmd in commands):
+                logging.error("Invalid commands. Only L, R, F allowed.")
+                continue
+
+            if field.add_car(name, x, y, direction, commands):
+                logging.info(f"Car {name} added successfully!\n")
+                field.print_results()
+
+        elif choice == '2':
+            collision_report = field.run_simulation()
+            field.print_results()
+            field.print_simulation_result(collision_report)
+            
+            logging.info("\nPlease choose from the following options:\n[1] Start over\n[2] Exit")
+            if input().strip() == '1':
+                start()
+            else:
+                logging.info("Thank you for running the Auto Driving Car Simulation. Goodbye!")
+                break
+
+if __name__ == "__main__":
+    start()
