@@ -1,5 +1,13 @@
 # auto_driving
 
+improvements made:
+1. Preventing duplicate names for car. 
+2. Preventing entry of car position on existing car positions. 
+3. Preventing entry of car position out of field bounds
+4. lowercase is accepted for direction & commands. 
+5. Simulation is able to detect the collision of a third car onto collisions that have already happened. 
+6. Simulation results displays collision report and final position & status of all cars. 
+
     ## Example Usage with Collision
 
     1. Start the program:
